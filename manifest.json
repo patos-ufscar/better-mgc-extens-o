@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Better MGC",
+  "version": "1.0",
+  "description": "Estimativa de custo para Magalu Cloud na gambi",
+  "permissions": [
+    "storage",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://console.magalu.cloud/*"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://console.magalu.cloud/virtual-machine"],
+      "js": ["vm-scraper.js"]
+    },
+    {
+      "matches": ["https://console.magalu.cloud/"],
+      "js": ["console.js"]
+    }
+  ],
+  "icons": {
+    "128": "icon.png"
+  }
+}
