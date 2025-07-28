@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     chrome.tabs.create({ url: vmUrl, active: false }, (tab) => {
       chrome.tabs.move(tab.id, { index: 0 });
+      chrome.tabs.update(tab.id, { pinned: true });
     });
 
     //window.close();
