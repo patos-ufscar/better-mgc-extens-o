@@ -66,41 +66,49 @@ function sanitizePrice(raw) {
 
 document.title = 'Better MGC - Scraper Ativo';
 
+const INITIAL_DELAY = 4000;
+
 const CHECK_INTERVAL = 500;
-const STABILIZATION_TIME = 6000;
+const STABILIZATION_TIME = 3000;
 const GLOBAL_TIMEOUT = 20000;
 
 let lastRowCount = -1;
 let stabilizationTimer = null;
 
+log(`Aguardando ${INITIAL_DELAY / 1000} segundos antes de iniciar a automação...`);
 
-const checkIntervalId = setInterval(() => {
-  const currentRowCount = document.querySelectorAll('tbody tr').length;
+setTimeout(() => {
+  iniciarMonitoramentoTabela();
+}, INITIAL_DELAY);
 
-  if (currentRowCount > lastRowCount) {
-    log(`Tabela está carregando... Encontradas ${currentRowCount} linhas.`);
-    lastRowCount = currentRowCount;
-    
+function iniciarMonitoramentoTabela() {
+  const checkIntervalId = setInterval(() => {
+    const currentRowCount = document.querySelectorAll('tbody tr').length;
+
+    if (currentRowCount > lastRowCount) {
+      log(`Tabela está carregando... Encontradas ${currentRowCount} linhas.`);
+      lastRowCount = currentRowCount;
+      
+      clearTimeout(stabilizationTimer);
+      
+      stabilizationTimer = setTimeout(() => {
+        log(`Tabela parece estável com ${lastRowCount} linhas. Iniciando extração...`);
+        clearInterval(checkIntervalId);
+        clearTimeout(globalTimeoutId);
+        scrapeData(document.querySelectorAll('tbody tr'));
+      }, STABILIZATION_TIME);
+
+    }
+  }, CHECK_INTERVAL);
+
+  const globalTimeoutId = setTimeout(() => {
+    clearInterval(checkIntervalId);
     clearTimeout(stabilizationTimer);
-    
-    stabilizationTimer = setTimeout(() => {
-      log(`Tabela parece estável com ${lastRowCount} linhas. Iniciando extração...`);
-      clearInterval(checkIntervalId);
-      clearTimeout(globalTimeoutId);
-      scrapeData(document.querySelectorAll('tbody tr'));
-    }, STABILIZATION_TIME);
-
-  }
-}, CHECK_INTERVAL);
-
-const globalTimeoutId = setTimeout(() => {
-  clearInterval(checkIntervalId);
-  clearTimeout(stabilizationTimer);
-  log('TEMPO ESGOTADO. A automação foi cancelada pois a tabela não estabilizou.');
-  alert('Better MGC: A automação foi cancelada pois a tabela de VMs não carregou a tempo.');
-  window.close();
-}, GLOBAL_TIMEOUT);
-
+    log('TEMPO ESGOTADO. A automação foi cancelada pois a tabela não estabilizou.');
+    alert('Better MGC: A automação foi cancelada pois a tabela de VMs não carregou a tempo.');
+    window.close();
+  }, GLOBAL_TIMEOUT);
+}
 
 async function scrapeData(rows) {
   currentPriceMap = await fetchAndParseCsvPrices();
@@ -140,6 +148,8 @@ async function scrapeData(rows) {
 
     log(`CÁLCULO FINAL: Custo total das VMs encontradas: R$ ${totalCost.toFixed(2)}`);
 
+    verificarCusto(totalCost);
+
     chrome.storage.local.set({
       mgcCost: totalCost.toFixed(2),
       vmsData: foundVms,
@@ -152,6 +162,16 @@ async function scrapeData(rows) {
   } catch (error) {
     log('Ocorreu um erro inesperado ao ler os dados:', error);
     window.close();
+  }
+}
+
+async function verificarCusto(totalCost) {
+  const result = await chrome.storage.sync.get('mgcCost');
+  const mgcCost = result.mgcCost;
+
+  if (totalCost === 0 || totalCost < mgcCost * 0.2) {
+    log('Provavelmente houve um erro ao pegar os dados, rodando a macro novamente.');
+    iniciarMonitoramentoTabela();
   }
 }
 
